@@ -1,0 +1,20 @@
+[server]
+# v0 (MVP):
+# - HTTP is "challenge + redirect only"
+# - HTTPS is the real service
+http_listen = "0.0.0.0:80"
+https_listen = "0.0.0.0:443"
+profile = "public_api"
+
+[acme]
+enabled = true
+# prod=false uses Let's Encrypt STAGING (recommended for initial testing)
+# prod=true uses Let's Encrypt PRODUCTION
+prod = true
+email = "admin@luciuz.com"
+domains = ["luciuz.com", "www.luciuz.com"]
+cache_dir = "/var/lib/luciuz/acme"
+
+[telemetry]
+json_logs = true
+log_level = "info"

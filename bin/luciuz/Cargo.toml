@@ -1,0 +1,26 @@
+[package]
+name = "luciuz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+
+# runtime
+tokio = { version = "1", features = ["full"] }
+
+# web
+axum = "0.8"
+axum-server = "0.8"
+
+# ACME (Let's Encrypt) + HTTP-01 challenge service for axum
+rustls-acme = { version = "0.15", features = ["axum", "tower"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+
+tracing = "0.1"
+
+luciuz-config = { path = "../../crates/luciuz-config" }
+luciuz-telemetry = { path = "../../crates/luciuz-telemetry" }
+luciuz-core = { path = "../../crates/luciuz-core" }

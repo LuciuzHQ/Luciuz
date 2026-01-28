@@ -1,0 +1,16 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Local runtime dirs (keep runtime state OUT of git)
+var/
