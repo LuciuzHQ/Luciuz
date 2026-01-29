@@ -361,6 +361,8 @@ async fn run_https_with_acme_http01(
         http_app
     };
 
+    let handler_timeout_secs = cfg.timeouts.as_ref().map(|t| t.handler_secs).unwrap_or(30);
+
     let https_app = https_app.layer(
         ServiceBuilder::new()
             .layer(HandleErrorLayer::new(|err: BoxError| async move {
@@ -371,7 +373,7 @@ async fn run_https_with_acme_http01(
                 // fallback
                 (StatusCode::INTERNAL_SERVER_ERROR, "").into_response()
             }))
-            .layer(TimeoutLayer::new(Duration::from_secs(30))),
+            .layer(TimeoutLayer::new(Duration::from_secs(handler_timeout_secs))),
     );
 
     // --- Servers

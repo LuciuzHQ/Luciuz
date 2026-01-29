@@ -7,6 +7,7 @@ pub struct Config {
     pub telemetry: Telemetry,
     #[serde(default)]
     pub acme: Acme,
+    pub timeouts: Option<TimeoutsConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -116,4 +117,14 @@ impl Default for Acme {
 
 fn default_acme_cache_dir() -> String {
     "./acme-cache".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TimeoutsConfig {
+    #[serde(default = "default_handler_secs")]
+    pub handler_secs: u64,
+}
+
+fn default_handler_secs() -> u64 {
+    30
 }

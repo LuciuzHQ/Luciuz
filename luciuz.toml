@@ -24,3 +24,6 @@ cache_dir = "/var/lib/luciuz/acme"
 [telemetry]
 json_logs = true
 log_level = "info"
+
+[timeouts]
+handler_secs = 30
