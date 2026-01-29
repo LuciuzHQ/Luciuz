@@ -266,23 +266,35 @@ async fn run_https_with_acme_http01(
     use rustls_acme::caches::DirCache;
     use rustls_acme::tower::TowerHttp01ChallengeService;
     use rustls_acme::AcmeConfig;
-    use rustls_acme::UseChallenge::Http01;
+    use rustls_acme::UseChallenge::{Http01, TlsAlpn01};
     use tokio_stream::StreamExt;
 
     // --- ACME state
+    let challenge = match cfg.acme.challenge.as_str() {
+        "http-01" => Http01,
+        "tls-alpn-01" => TlsAlpn01,
+        other => {
+            return Err(anyhow::anyhow!(
+                "acme.challenge invalid: {other} (allowed: http-01|tls-alpn-01)"
+            ));
+        }
+    };
+
     let mut state = AcmeConfig::new(cfg.acme.domains.clone())
         .contact_push(format!("mailto:{}", cfg.acme.email))
         .cache(DirCache::new(cfg.acme.cache_dir))
         .directory_lets_encrypt(cfg.acme.prod)
-        .challenge_type(Http01)
+        .challenge_type(challenge)
         .state();
 
     // Rustls acceptor for axum-server.
     let acceptor = state.axum_acceptor(state.default_rustls_config());
 
-    // Tower service that serves /.well-known/acme-challenge/<token>
-    let acme_challenge_service: TowerHttp01ChallengeService =
-        state.http01_challenge_tower_service();
+    let http01_service: Option<TowerHttp01ChallengeService> = if cfg.acme.challenge == "http-01" {
+        Some(state.http01_challenge_tower_service())
+    } else {
+        None
+    };
 
     // Log ACME events in the background.
     tokio::spawn(async move {
@@ -340,15 +352,26 @@ async fn run_https_with_acme_http01(
         https_app
     };
 
-    let http_app = Router::new()
-        .route_service(
-            "/.well-known/acme-challenge/{challenge_token}",
-            acme_challenge_service,
-        )
-        .fallback(get(http_to_https_redirect))
-        .with_state(RedirectState {
-            canonical_host: canonical.clone(),
-        });
+    let http_app = if cfg.acme.challenge == "http-01" {
+        let acme_challenge_service =
+            http01_service.expect("http-01 selected but http01_service was not initialized");
+
+        Router::new()
+            .route_service(
+                "/.well-known/acme-challenge/{challenge_token}",
+                acme_challenge_service,
+            )
+            .fallback(get(http_to_https_redirect))
+            .with_state(RedirectState {
+                canonical_host: canonical.clone(),
+            })
+    } else {
+        Router::new()
+            .fallback(get(http_to_https_redirect))
+            .with_state(RedirectState {
+                canonical_host: canonical.clone(),
+            })
+    };
 
     // Apply HTTP guard only when canonical host is configured
     let http_app = if let Some(ch) = canonical.clone() {
