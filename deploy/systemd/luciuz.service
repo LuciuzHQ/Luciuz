@@ -1,0 +1,40 @@
+[Unit]
+Description=Luciuz Web Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zentra
+Group=zentra
+WorkingDirectory=/home/zentra/LuciuzWeb
+ExecStart=/home/zentra/LuciuzWeb/target/release/luciuz run -c /home/zentra/LuciuzWeb/luciuz.toml
+
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+# Ensure ACME keys/certs are created with strict permissions
+UMask=0077
+
+# Sandboxing (safe set)
+PrivateTmp=true
+ProtectSystem=strict
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+
+# Allow writes only to ACME cache directory
+ReadWritePaths=/var/lib/luciuz/acme
+
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+
