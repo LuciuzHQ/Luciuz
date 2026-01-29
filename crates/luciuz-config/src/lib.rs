@@ -4,11 +4,9 @@ pub use model::Config;
 use luciuz_core::{error::LuciuzError, Result};
 
 pub fn load_from_path(path: &str) -> Result<Config> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| LuciuzError::Io(e.to_string()))?;
+    let raw = std::fs::read_to_string(path).map_err(|e| LuciuzError::Io(e.to_string()))?;
 
-    let cfg: Config = toml::from_str(&raw)
-        .map_err(|e| LuciuzError::Config(e.to_string()))?;
+    let cfg: Config = toml::from_str(&raw).map_err(|e| LuciuzError::Config(e.to_string()))?;
 
     validate(&cfg)?;
     Ok(cfg)
@@ -32,7 +30,9 @@ fn validate(cfg: &Config) -> Result<()> {
     }
 
     if cfg.server.hsts && cfg.server.hsts_max_age == 0 {
-        return Err(LuciuzError::Config("server.hsts_max_age must be > 0 when hsts=true".into()));
+        return Err(LuciuzError::Config(
+            "server.hsts_max_age must be > 0 when hsts=true".into(),
+        ));
     }
 
     if cfg.acme.enabled {
@@ -61,4 +61,3 @@ fn validate(cfg: &Config) -> Result<()> {
 
     Ok(())
 }
-

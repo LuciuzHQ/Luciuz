@@ -4,7 +4,10 @@ use axum::{
     body::Body,
     extract::State,
     http::{
-        header::{HeaderName, HOST, STRICT_TRANSPORT_SECURITY, X_CONTENT_TYPE_OPTIONS, REFERRER_POLICY, X_FRAME_OPTIONS},
+        header::{
+            HeaderName, HOST, REFERRER_POLICY, STRICT_TRANSPORT_SECURITY, X_CONTENT_TYPE_OPTIONS,
+            X_FRAME_OPTIONS,
+        },
         HeaderMap, HeaderValue, Request, Uri,
     },
     middleware::{from_fn_with_state, Next},
@@ -95,14 +98,18 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 #[derive(Clone)]
-struct CanonicalHost(String);
+struct CanonicalHost {
+    canonical: String,
+    www: String,
+}
 
 async fn canonical_host_mw(
     State(state): State<CanonicalHost>,
     req: Request<Body>,
     next: Next,
 ) -> Response {
-    let canonical = state.0.as_str();
+    let canonical = state.canonical.as_str();
+    let www = state.www.as_str();
 
     // Host header (strip optional port)
     let host = req
@@ -111,8 +118,12 @@ async fn canonical_host_mw(
         .and_then(|v| v.to_str().ok())
         .map(|s| s.split(':').next().unwrap_or(s));
 
-    if let Some(host) = host {
-        if host != canonical {
+    match host {
+        Some(h) if h == canonical => {
+            // ok
+        }
+        Some(h) if h == www => {
+            // www -> apex
             let path = req
                 .uri()
                 .path_and_query()
@@ -121,6 +132,15 @@ async fn canonical_host_mw(
 
             let target = format!("https://{canonical}{path}");
             return Redirect::permanent(&target).into_response();
+        }
+        Some(h) => {
+            // Secure-by-default: refuse unknown hosts on the HTTPS listener.
+            warn!(host = %h, uri = %req.uri(), "rejecting request for unknown host");
+            return axum::http::StatusCode::MISDIRECTED_REQUEST.into_response();
+        }
+        None => {
+            warn!(uri = %req.uri(), "rejecting request without Host header");
+            return axum::http::StatusCode::BAD_REQUEST.into_response();
         }
     }
 
@@ -132,13 +152,10 @@ struct HstsState {
     value: HeaderValue,
 }
 
-async fn hsts_mw(
-    State(state): State<HstsState>,
-    req: Request<Body>,
-    next: Next,
-) -> Response {
+async fn hsts_mw(State(state): State<HstsState>, req: Request<Body>, next: Next) -> Response {
     let mut res = next.run(req).await;
-    res.headers_mut().insert(STRICT_TRANSPORT_SECURITY, state.value.clone());
+    res.headers_mut()
+        .insert(STRICT_TRANSPORT_SECURITY, state.value.clone());
     res
 }
 
@@ -210,7 +227,8 @@ async fn run_https_with_acme_http01(
     let acceptor = state.axum_acceptor(state.default_rustls_config());
 
     // Tower service that serves /.well-known/acme-challenge/<token>
-    let acme_challenge_service: TowerHttp01ChallengeService = state.http01_challenge_tower_service();
+    let acme_challenge_service: TowerHttp01ChallengeService =
+        state.http01_challenge_tower_service();
 
     // Log ACME events in the background.
     tokio::spawn(async move {
@@ -227,7 +245,11 @@ async fn run_https_with_acme_http01(
 
     // --- HTTPS: apply canonical host redirect (www -> apex)
     let https_app = if let Some(ch) = canonical.clone() {
-        https_app.layer(from_fn_with_state(CanonicalHost(ch), canonical_host_mw))
+        let state = CanonicalHost {
+            www: format!("www.{ch}"),
+            canonical: ch,
+        };
+        https_app.layer(from_fn_with_state(state, canonical_host_mw))
     } else {
         https_app
     };
@@ -242,8 +264,8 @@ async fn run_https_with_acme_http01(
             v.push_str("; preload");
         }
 
-        let hv = HeaderValue::from_str(&v)
-            .map_err(|_| anyhow::anyhow!("invalid HSTS header value"))?;
+        let hv =
+            HeaderValue::from_str(&v).map_err(|_| anyhow::anyhow!("invalid HSTS header value"))?;
 
         https_app.layer(from_fn_with_state(HstsState { value: hv }, hsts_mw))
     } else {

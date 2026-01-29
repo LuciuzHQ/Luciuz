@@ -1,6 +1,6 @@
-use tracing_subscriber::{fmt, EnvFilter};
-use tracing_subscriber::prelude::*; // SubscriberExt::with
 use luciuz_config::Config;
+use tracing_subscriber::prelude::*; // SubscriberExt::with
+use tracing_subscriber::{fmt, EnvFilter};
 
 pub fn init(cfg: &Config) {
     let level = cfg.telemetry.log_level.as_str();
