@@ -36,6 +36,30 @@ fn validate(cfg: &Config) -> Result<()> {
         }
     }
 
+    if cfg.server.profile == "static_site" {
+        let s = cfg.static_site.as_ref().ok_or_else(|| {
+            LuciuzError::Config(
+                "server.profile=static_site but [static_site] section is missing".into(),
+            )
+        })?;
+
+        if s.root.trim().is_empty() {
+            return Err(LuciuzError::Config("static_site.root is empty".into()));
+        }
+
+        if s.index.trim().is_empty() {
+            return Err(LuciuzError::Config("static_site.index is empty".into()));
+        }
+
+        if let Some(cc) = &s.cache_control {
+            if cc.trim().is_empty() {
+                return Err(LuciuzError::Config(
+                    "static_site.cache_control is empty".into(),
+                ));
+            }
+        }
+    }
+
     if cfg.server.hsts && cfg.server.hsts_max_age == 0 {
         return Err(LuciuzError::Config(
             "server.hsts_max_age must be > 0 when hsts=true".into(),

@@ -8,6 +8,7 @@ pub struct Config {
     #[serde(default)]
     pub acme: Acme,
     pub timeouts: Option<TimeoutsConfig>,
+    pub static_site: Option<StaticSite>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -135,4 +136,20 @@ pub struct TimeoutsConfig {
 
 fn default_handler_secs() -> u64 {
     30
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct StaticSite {
+    pub root: String,
+
+    #[serde(default = "default_index")]
+    pub index: String,
+
+    /// Optional Cache-Control header value applied on static responses.
+    /// Example: "public, max-age=3600"
+    pub cache_control: Option<String>,
+}
+
+fn default_index() -> String {
+    "index.html".to_string()
 }
