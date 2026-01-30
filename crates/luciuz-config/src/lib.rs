@@ -13,8 +13,15 @@ pub fn load_from_path(path: &str) -> Result<Config> {
 }
 
 fn validate(cfg: &Config) -> Result<()> {
-    if cfg.server.http_listen.trim().is_empty() {
-        return Err(LuciuzError::Config("server.http_listen is empty".into()));
+    let http_listen_empty = cfg.server.http_listen.trim().is_empty();
+
+    if http_listen_empty {
+        let ok = cfg.acme.enabled && cfg.acme.challenge == "tls-alpn-01";
+        if !ok {
+            return Err(LuciuzError::Config(
+                "server.http_listen is empty (required unless acme.challenge=tls-alpn-01)".into(),
+            ));
+        }
     }
     if cfg.server.https_listen.trim().is_empty() {
         return Err(LuciuzError::Config("server.https_listen is empty".into()));
