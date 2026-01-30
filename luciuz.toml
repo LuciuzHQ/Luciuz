@@ -2,7 +2,7 @@
 # v0 (MVP):
 # - HTTP is "challenge + redirect only"
 # - HTTPS is the real service
-http_listen = "0.0.0.0:80"
+http_listen = ""
 https_listen = "0.0.0.0:443"
 profile = "public_api"
 canonical_host = "luciuz.com"
@@ -20,7 +20,7 @@ prod = true
 email = "admin@luciuz.com"
 domains = ["luciuz.com", "www.luciuz.com"]
 cache_dir = "/var/lib/luciuz/acme"
-challenge = "http-01"
+challenge = "tls-alpn-01"
 
 [telemetry]
 json_logs = true
@@ -28,3 +28,18 @@ log_level = "info"
 
 [timeouts]
 handler_secs = 30
+
+[static_site]
+root = "/var/www/luciuz"
+index = "index.html"
+
+[proxy]
+max_body_bytes = 52428800 # 50 MB
+
+[[proxy.routes]]
+prefix = "/api"
+upstream = "http://127.0.0.1:8080"
+
+[[proxy.routes]]
+prefix = "/"
+upstream = "http://127.0.0.1:3000"

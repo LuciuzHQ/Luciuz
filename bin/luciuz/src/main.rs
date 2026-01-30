@@ -13,13 +13,14 @@ use axum::{
     },
     middleware::{from_fn_with_state, Next},
     response::{IntoResponse, Redirect, Response},
-    routing::get,
+    routing::{get, get_service},
     Router,
 };
 use clap::{Parser, Subcommand};
 use std::time::Duration;
 use tower::timeout::TimeoutLayer;
 use tower::{BoxError, ServiceBuilder};
+use tower_http::services::ServeDir;
 use tracing::{info, warn};
 
 static COOP: HeaderName = HeaderName::from_static("cross-origin-opener-policy");
@@ -86,9 +87,28 @@ async fn main() -> Result<(), anyhow::Error> {
             };
             let https_addr: SocketAddr = cfg.server.https_listen.parse()?;
 
-            let app = Router::new()
-                .route("/healthz", get(|| async { "ok" }))
-                .route("/", get(|| async { "luciuz: running" }));
+            let app: axum::Router<()> = if cfg.server.profile == "static_site" {
+                let s = cfg
+                    .static_site
+                    .as_ref()
+                    .expect("config validated: missing [static_site]");
+
+                let service =
+                    get_service(ServeDir::new(&s.root).append_index_html_on_directories(true))
+                        .handle_error(|err| async move {
+                            tracing::error!(?err, "static file error");
+                            (StatusCode::INTERNAL_SERVER_ERROR, "static file error")
+                        });
+
+                Router::new()
+                    .route("/healthz", get(|| async { "ok" }))
+                    .fallback_service(service)
+            } else {
+                // default/minimal router for now (public_api/admin_panel later)
+                Router::new()
+                    .route("/healthz", get(|| async { "ok" }))
+                    .route("/", get(|| async { "luciuz: running" }))
+            };
 
             info!(
                 http_listen = %cfg.server.http_listen,

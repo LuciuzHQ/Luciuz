@@ -9,6 +9,7 @@ pub struct Config {
     pub acme: Acme,
     pub timeouts: Option<TimeoutsConfig>,
     pub static_site: Option<StaticSite>,
+    pub proxy: Option<Proxy>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -152,4 +153,23 @@ pub struct StaticSite {
 
 fn default_index() -> String {
     "index.html".to_string()
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct Proxy {
+    #[serde(default = "default_max_body_bytes")]
+    pub max_body_bytes: usize,
+
+    #[serde(default)]
+    pub routes: Vec<ProxyRoute>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ProxyRoute {
+    pub prefix: String,
+    pub upstream: String,
+}
+
+fn default_max_body_bytes() -> usize {
+    50 * 1024 * 1024 // 50 MB
 }

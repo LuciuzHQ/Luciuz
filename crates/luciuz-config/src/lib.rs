@@ -60,6 +60,37 @@ fn validate(cfg: &Config) -> Result<()> {
         }
     }
 
+    if cfg.server.profile == "public_api" {
+        let p = cfg.proxy.as_ref().ok_or_else(|| {
+            LuciuzError::Config("server.profile=public_api but [proxy] section is missing".into())
+        })?;
+
+        if p.routes.is_empty() {
+            return Err(LuciuzError::Config("proxy.routes is empty".into()));
+        }
+
+        for r in &p.routes {
+            if r.prefix.trim().is_empty() {
+                return Err(LuciuzError::Config("proxy.routes[].prefix is empty".into()));
+            }
+            if !r.prefix.starts_with('/') {
+                return Err(LuciuzError::Config(
+                    "proxy.routes[].prefix must start with '/'".into(),
+                ));
+            }
+            if r.upstream.trim().is_empty() {
+                return Err(LuciuzError::Config(
+                    "proxy.routes[].upstream is empty".into(),
+                ));
+            }
+            if !(r.upstream.starts_with("http://") || r.upstream.starts_with("https://")) {
+                return Err(LuciuzError::Config(
+                    "proxy.routes[].upstream must start with http:// or https://".into(),
+                ));
+            }
+        }
+    }
+
     if cfg.server.hsts && cfg.server.hsts_max_age == 0 {
         return Err(LuciuzError::Config(
             "server.hsts_max_age must be > 0 when hsts=true".into(),

@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 tower = { version = "0.5", features = ["timeout"] }
+tower-http = { version = "0.5", features = ["fs"] }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 
