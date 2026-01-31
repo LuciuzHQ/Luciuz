@@ -1,6 +1,6 @@
 use axum::{
     body::{to_bytes, Body},
-    http::{header, HeaderMap, Request, Response, StatusCode, Uri},
+    http::{header, Request, Response, StatusCode},
     routing::any,
     Router,
 };
@@ -16,7 +16,6 @@ const HOP_BY_HOP: &[header::HeaderName] = &[
     header::TRAILER,
     header::TRANSFER_ENCODING,
     header::UPGRADE,
-    header::KEEP_ALIVE,
 ];
 
 pub fn router(cfg: &Config) -> anyhow::Result<Router<()>> {
@@ -40,7 +39,9 @@ pub fn router(cfg: &Config) -> anyhow::Result<Router<()>> {
     for route in routes {
         let prefix = route.prefix.clone();
         let upstream = route.upstream.clone();
-        let client = client.clone();
+
+        // One shared client for this route setup
+        let client_base = client.clone();
 
         // Match both "/prefix" and "/prefix/*path"
         let pattern = if prefix == "/" {
@@ -49,15 +50,25 @@ pub fn router(cfg: &Config) -> anyhow::Result<Router<()>> {
             format!("{}/{{*path}}", prefix.trim_end_matches('/'))
         };
 
+        // ---- closure for "/prefix/*path"
+        let prefix_1 = prefix.clone();
+        let upstream_1 = upstream.clone();
+        let client_1 = client_base.clone();
+
+        // ---- closure for "/prefix"
+        let prefix_2 = prefix.clone();
+        let upstream_2 = upstream.clone();
+        let client_2 = client_base.clone();
+
         rtr = rtr
             .route(
                 &pattern,
                 any(move |req| {
                     proxy_one(
                         req,
-                        client.clone(),
-                        upstream.clone(),
-                        prefix.clone(),
+                        client_1.clone(),
+                        upstream_1.clone(),
+                        prefix_1.clone(),
                         max_body,
                     )
                 }),
@@ -67,9 +78,9 @@ pub fn router(cfg: &Config) -> anyhow::Result<Router<()>> {
                 any(move |req| {
                     proxy_one(
                         req,
-                        client.clone(),
-                        upstream.clone(),
-                        prefix.clone(),
+                        client_2.clone(),
+                        upstream_2.clone(),
+                        prefix_2.clone(),
                         max_body,
                     )
                 }),
@@ -126,7 +137,12 @@ async fn proxy_one(
         if HOP_BY_HOP.contains(k) {
             continue;
         }
-        out_headers.insert(k.as_str(), v.as_bytes().try_into().unwrap_or_default());
+        if let (Ok(hname), Ok(hval)) = (
+            reqwest::header::HeaderName::from_bytes(k.as_str().as_bytes()),
+            reqwest::header::HeaderValue::from_bytes(v.as_bytes()),
+        ) {
+            out_headers.insert(hname, hval);
+        }
     }
 
     // X-Forwarded-* (MVP)

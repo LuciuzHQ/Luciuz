@@ -103,8 +103,15 @@ async fn main() -> Result<(), anyhow::Error> {
                 Router::new()
                     .route("/healthz", get(|| async { "ok" }))
                     .fallback_service(service)
+            } else if cfg.server.profile == "public_api" {
+                // ✅ ici on branche le reverse proxy
+                let proxy_router = luciuz_proxy::router(&cfg)?;
+
+                Router::new()
+                    .route("/healthz", get(|| async { "ok" }))
+                    .merge(proxy_router)
             } else {
-                // default/minimal router for now (public_api/admin_panel later)
+                // default/minimal router for now (admin_panel later)
                 Router::new()
                     .route("/healthz", get(|| async { "ok" }))
                     .route("/", get(|| async { "luciuz: running" }))

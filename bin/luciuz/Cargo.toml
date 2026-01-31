@@ -26,3 +26,4 @@ tracing = "0.1"
 luciuz-config = { path = "../../crates/luciuz-config" }
 luciuz-telemetry = { path = "../../crates/luciuz-telemetry" }
 luciuz-core = { path = "../../crates/luciuz-core" }
+luciuz-proxy = { path = "../../crates/luciuz-proxy" }
