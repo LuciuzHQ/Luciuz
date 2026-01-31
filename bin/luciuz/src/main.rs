@@ -96,8 +96,8 @@ async fn main() -> Result<(), anyhow::Error> {
                     .route(
                         "/",
                         get(|| async {
-                        axum::response::Html(
-                            r#"<!doctype html>
+                            axum::response::Html(
+                                r#"<!doctype html>
             <html lang="en">
             <head>
               <meta charset="utf-8">
@@ -112,9 +112,18 @@ async fn main() -> Result<(), anyhow::Error> {
               </ul>
             </body>
             </html>"#,
+                            )
+                        }),
                     )
-                }),
-            )
+                    .route(
+                        "/version",
+                        get(|| async {
+                            (
+                                StatusCode::OK,
+                                format!("luciuz {}\n", env!("CARGO_PKG_VERSION")),
+                            )
+                        }),
+                    )
                     .merge(proxy_router)
             } else {
                 Router::new().route("/healthz", get(|| async { "ok" }))
