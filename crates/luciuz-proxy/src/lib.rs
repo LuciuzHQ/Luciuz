@@ -1,6 +1,6 @@
 use axum::{
     body::{to_bytes, Body},
-    http::{header, HeaderMap, HeaderName, Request, Response, StatusCode},
+    http::{header, HeaderMap, HeaderName, HeaderValue, Request, Response, StatusCode},
     routing::any,
     Router,
 };
@@ -149,8 +149,21 @@ async fn proxy_one(
     // Build upstream request
     let mut rb = client.request(parts.method.clone(), target);
 
-    // Copy headers (filter hop-by-hop)
-    rb = rb.headers(filter_hop_by_hop(parts.headers));
+    let mut out_headers = filter_hop_by_hop(parts.headers);
+
+    if let Some(host) = out_headers.get(header::HOST).and_then(|v| v.to_str().ok()) {
+        out_headers.insert(
+            HeaderName::from_static("x-forwarded-host"),
+            HeaderValue::from_str(host).unwrap_or_else(|_| HeaderValue::from_static("invalid")),
+        );
+    }
+
+    out_headers.insert(
+        HeaderName::from_static("x-forwarded-proto"),
+        HeaderValue::from_static("https"),
+    );
+
+    rb = rb.headers(out_headers);
 
     // Send
     let upstream_resp = match rb.body(bytes).send().await {
