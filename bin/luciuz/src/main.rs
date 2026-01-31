@@ -93,7 +93,28 @@ async fn main() -> Result<(), anyhow::Error> {
                 let proxy_router = luciuz_proxy::router(&cfg)?;
                 Router::new()
                     .route("/healthz", get(|| async { "ok" }))
-                    .route("/", get(|| async { "luciuz: running" }))
+                    .route(
+                        "/",
+                        get(|| async {
+                        axum::response::Html(
+                            r#"<!doctype html>
+            <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Luciuz</title>
+            </head>
+            <body>
+              <h1>Luciuz is running</h1>
+              <ul>
+                <li><a href="/healthz">/healthz</a></li>
+                <li><a href="/api/">/api/</a></li>
+              </ul>
+            </body>
+            </html>"#,
+                    )
+                }),
+            )
                     .merge(proxy_router)
             } else {
                 Router::new().route("/healthz", get(|| async { "ok" }))
