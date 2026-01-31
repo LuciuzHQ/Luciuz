@@ -118,6 +118,11 @@ async fn proxy_one(
 ) -> Response<Body> {
     let (parts, body) = req.into_parts();
 
+    let client_ip = parts
+        .extensions
+        .get::<axum::extract::connect_info::ConnectInfo<std::net::SocketAddr>>()
+        .map(|ci| ci.0.ip().to_string());
+
     // IMPORTANT: we want /api => / and /api/ => /
     let orig_path = parts.uri.path();
     let rest = if prefix == "/" {
@@ -162,6 +167,25 @@ async fn proxy_one(
         HeaderName::from_static("x-forwarded-proto"),
         HeaderValue::from_static("https"),
     );
+
+    // x-forwarded-for = IP client (si on l'a via ConnectInfo)
+    if let Some(ip) = client_ip.as_deref() {
+        let name = HeaderName::from_static("x-forwarded-for");
+
+        match out_headers.get(&name).and_then(|v| v.to_str().ok()) {
+            Some(prev) => {
+                let combined = format!("{prev}, {ip}");
+                if let Ok(v) = HeaderValue::from_str(&combined) {
+                    out_headers.insert(name, v);
+                }
+            }
+            None => {
+                if let Ok(v) = HeaderValue::from_str(ip) {
+                    out_headers.insert(name, v);
+                }
+            }
+        }
+    }
 
     rb = rb.headers(out_headers);
 

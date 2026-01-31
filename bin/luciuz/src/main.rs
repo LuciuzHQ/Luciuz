@@ -459,7 +459,7 @@ async fn run_https_with_acme_http01(
     // --- Servers
     let https_future = bind(https_addr)
         .acceptor(acceptor)
-        .serve(https_app.into_make_service());
+        .serve(https_app.into_make_service_with_connect_info::<SocketAddr>());
 
     if let Some(http_addr) = http_addr {
         // Si on est en http-01, le port 80 doit exister (sinon on ne peut pas valider).
